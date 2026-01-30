@@ -2,18 +2,23 @@
 
 use Behat\Behat\Context\Context;
 use PHPUnit\Framework\Assert;
-use Tests\Behat\TestCase;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Models\User;
+use Illuminate\Http\Request;
+use Behat\Gherkin\Node\TableNode;
 
-/**
- * Defines application features from the specific context.
- */
-class FeatureContext extends TestCase implements Context
+
+class FeatureContext implements Context
 {
     private string $message;
-    private User $user;
+    private ?User $user = null;
+    private $response;
 
+    public function __construct()
+    {
+        // Démarrage manuel de Laravel
+        $app = require __DIR__ . '/../../bootstrap/app.php';
+        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+    }
 
     /**
      * @Given je dis bonjour
@@ -37,7 +42,7 @@ class FeatureContext extends TestCase implements Context
     public function unUtilisateurExisteEnBase()
     {
         $this->user = User::factory()->create([
-            'email' => 'test@example.com',
+            'email' => random_bytes(5) . '@example.com'
         ]);
     }
 
@@ -48,6 +53,57 @@ class FeatureContext extends TestCase implements Context
     {
         $found = User::where('email', 'test@example.com')->first();
         Assert::assertNotNull($found);
+    }
+
+    // /**
+    //  * @When j'appelle la route :url
+    //  */
+    // public function jAppelleLaRoute($url)
+    // {
+    //     $request = Request::create($url, 'GET');
+    //     $this->response = app()->handle($request);
+    // }
+
+    // /**
+    //  * @Then la réponse contient :texte
+    //  */
+    // public function laReponseContient($texte)
+    // {
+    //     Assert::assertStringContainsString(
+    //         $texte,
+    //         $this->response->getContent()
+    //     );
+    // }
+    
+    /**
+     * @When j'envoie une requête POST sur :url avec le JSON:
+     */
+    public function jEnvoieUneRequetePostAvecLeJson($url, TableNode $table)
+    {
+        $data = $table->getRowsHash();
+
+        $request = Request::create(
+            $url,
+            'POST',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode($data)
+        );
+
+        $this->response = app()->handle($request);
+    }
+
+    /**
+     * @Then la réponse contient :texte
+     */
+    public function laReponseContient($texte)
+    {
+        Assert::assertStringContainsString(
+            $texte,
+            $this->response->getContent()
+        );
     }
 
 }
